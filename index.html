@@ -1951,7 +1951,18 @@ function initCloudSync() {
       if (JSON.stringify(remote) === JSON.stringify(current)) return; // nothing changed, skip a redundant re-render
       try { localStorage.setItem(localKey, JSON.stringify(remote)); } catch (e) {}
       refreshActiveView();
-    }, err => console.warn('Cloud sync listener error — this device may show stale data.', err));
+    }, err => {
+      console.warn('Cloud sync listener error — this device may show stale data.', err);
+      // Same reasoning as the push-side warning: if THIS device can't
+      // receive updates from Firestore, admin would never see new
+      // provider signups or job requests that came in from other
+      // devices, with no indication anything was wrong. Admin-only,
+      // since this is an admin-side config issue, not a customer/
+      // provider problem.
+      if (isAdminEmail(getCurrentUser())) {
+        showToast('Cloud sync connection failed — new signups/requests from other devices may not show up here. Check your Firestore rules haven\'t expired.');
+      }
+    });
   });
 }
 
