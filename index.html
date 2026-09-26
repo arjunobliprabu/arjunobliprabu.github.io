@@ -2748,8 +2748,11 @@ function renderModalCalendar() {
     const cell = document.createElement('div');
     cell.className = 'cal-day';
     cell.innerText = day;
-    const isPast = isCurrentMonth && day < todayReal.getDate();
-    if (isPast) {
+    // Bookings must be made at least 1 day in advance — today is
+    // blocked, same as any past day, so the earliest bookable day is
+    // always tomorrow.
+    const isTooSoon = isCurrentMonth && day <= todayReal.getDate();
+    if (isTooSoon) {
       cell.classList.add('disabled');
     } else {
       cell.onclick = () => selectModalDay(day, cell);
