@@ -1734,14 +1734,14 @@ const SPRING_FALL_OFFERINGS = [
   { name: "Leaf blowing", sizePricing: { "Small": 20, "Medium": 25, "Large": 30, "Extra Large": 35 }, description: "Full yard clearing, beds and walkways included." },
   { name: "Weed whacking", sizePricing: { "Small": 30, "Medium": 40, "Large": 50, "Extra Large": 60 }, description: "Trim along fences, beds and hardscape edges." },
   { name: "Plant watering", price: 25, priceLabel: "$25 / visit", description: "Scheduled deep watering for beds and containers." },
-  { name: "Seasonal cleanup", price: 200, priceLabel: "$200 / one visit", description: "Full property reset at the start or end of the season." },
+  { name: "Seasonal cleanup", price: 200, priceLabel: "Starting from $200", description: "Full property reset at the start or end of the season." },
 ];
 
 const WINTER_OFFERINGS = [
   { name: "Snow plowing", price: 75, priceLabel: "$75 / visit", description: "Driveway and parking pad cleared after each snowfall." },
   { name: "Shoveling snow", price: 50, priceLabel: "$50 / visit", description: "Walkways, steps and entryways shoveled clean." },
   { name: "Car cleaning (snow)", price: 20, priceLabel: "$20 / car", description: "Brush off, windows cleared, wipers freed." },
-  { name: "Seasonal snow plan", price: 300, priceLabel: "$300 / full season", description: "Covers snow plowing for your driveway and walkways only, all winter long." },
+  { name: "Seasonal snow plan", price: 200, priceLabel: "Starting from $200", description: "Covers snow plowing for your driveway and walkways only, all winter long." },
 ];
 
 // Before/after photo gallery — real job photos. Each yard section has
@@ -2746,15 +2746,19 @@ function renderModalCalendar() {
     pad.className = 'cal-day pad';
     grid.appendChild(pad);
   }
+  // Bookings must be at least 2 days out, and only Saturdays/Sundays
+  // are bookable — computed as real dates so this works correctly even
+  // when the 2-day window or a weekend falls right at a month boundary.
+  const earliestBookableDate = new Date(todayReal.getFullYear(), todayReal.getMonth(), todayReal.getDate() + 2);
   for (let day = 1; day <= daysInMonth; day++) {
     const cell = document.createElement('div');
     cell.className = 'cal-day';
     cell.innerText = day;
-    // Bookings must be made at least 1 day in advance — today is
-    // blocked, same as any past day, so the earliest bookable day is
-    // always tomorrow.
-    const isTooSoon = isCurrentMonth && day <= todayReal.getDate();
-    if (isTooSoon) {
+    const cellDate = new Date(modalYear, modalMonth, day);
+    const dayOfWeek = cellDate.getDay(); // 0 = Sunday, 6 = Saturday
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const isTooSoon = cellDate < earliestBookableDate;
+    if (isTooSoon || !isWeekend) {
       cell.classList.add('disabled');
     } else {
       cell.onclick = () => selectModalDay(day, cell);
