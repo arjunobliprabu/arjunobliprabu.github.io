@@ -2919,6 +2919,10 @@ let rescheduleBookingId = null;
 function openRescheduleModal(bookingId) {
   const booking = getBookings().find(b => b.id === bookingId);
   if (!booking) return;
+  if (!booking.isPass && (bookingDateTime(booking) - new Date()) / (1000 * 60 * 60) < 24) {
+    showToast("This appointment is too close to reschedule — changes need at least 24 hours' notice. Please contact admin directly.");
+    return;
+  }
   rescheduleBookingId = bookingId;
   activeOffering = { name: booking.serviceName, price: booking.price };
   document.getElementById('modal-title').innerText = `Reschedule ${booking.serviceName}`;
@@ -3834,6 +3838,8 @@ function renderMyBookings() {
     let actionHtml;
     if (b.completed) {
       actionHtml = `<span style="color:var(--muted-foreground);font-size:0.85rem;">Completed</span>`;
+    } else if (b.isPass) {
+      actionHtml = `<span style="color:var(--muted-foreground);font-size:0.85rem;">Weekly service — no single appointment to reschedule</span>`;
     } else if (b.rescheduleRequest && b.rescheduleRequest.requestedBy === 'admin') {
       const r = b.rescheduleRequest;
       actionHtml = `
@@ -3844,6 +3850,12 @@ function renderMyBookings() {
         </div>`;
     } else if (b.rescheduleRequest && b.rescheduleRequest.requestedBy === 'customer') {
       actionHtml = `<span style="color:var(--muted-foreground);font-size:0.85rem;">Reschedule requested (${prettyDate(b.rescheduleRequest.dateISO)} · ${b.rescheduleRequest.time}) — waiting on admin</span>`;
+    } else if ((bookingDateTime(b) - new Date()) / (1000 * 60 * 60) < 24) {
+      actionHtml = `
+        <div style="text-align:right;">
+          <button class="add-btn" disabled style="opacity:0.5;cursor:not-allowed;">Request Reschedule</button>
+          <p style="margin:4px 0 0 0;font-size:0.75rem;color:var(--muted-foreground);">Too close to your appointment — reschedules need at least 24 hours' notice.</p>
+        </div>`;
     } else {
       actionHtml = `<button class="add-btn" onclick="openRescheduleModal('${b.id}')">Request Reschedule</button>`;
     }
