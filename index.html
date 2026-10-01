@@ -1220,6 +1220,12 @@
     </section>
 
     <section style="margin-top:40px;">
+      <h2 class="font-display" style="font-size:1.6rem;">Reschedule requests</h2>
+      <p class="signin-note" style="margin-top:8px;">Customers asking to change a booking's time show up here.</p>
+      <div id="admin-reschedule-requests-list" style="margin-top:16px;"></div>
+    </section>
+
+    <section style="margin-top:40px;">
       <h2 class="font-display" style="font-size:1.6rem;">All bookings</h2>
       <div id="admin-bookings-list" style="margin-top:16px;"></div>
     </section>
@@ -1365,6 +1371,17 @@
           </div>
         </div>
     </div>
+  </div>
+</div>
+
+<!-- ================= MY BOOKINGS (customer) ================= -->
+<div id="my-bookings-view" class="view">
+  <div class="wrap">
+    <button class="back-link" onclick="navigateTo('home-view')">← Back to site</button>
+    <p class="eyebrow" style="margin-top:20px;">Your account</p>
+    <h1 class="big-title font-display" style="font-size:clamp(2.5rem,6vw,4.2rem);">My Bookings</h1>
+    <p class="subtitle">See your upcoming services, or request a different time.</p>
+    <div id="my-bookings-list" style="margin-top:30px;"></div>
   </div>
 </div>
 
@@ -2413,6 +2430,8 @@ function renderAccountWidget() {
     } else if (employee) {
       label = `${employee.firstName} (Service Provider)`;
       dashboardBtn = `<button onclick="renderEmployeeDashboard(); navigateTo('employee-view');" style="text-decoration:underline;">Dashboard</button>`;
+    } else {
+      dashboardBtn = `<button onclick="renderMyBookings(); navigateTo('my-bookings-view');" style="text-decoration:underline;">My Bookings</button>`;
     }
     el.innerHTML = `
       <span class="account-avatar">${initial}</span>
@@ -2562,6 +2581,178 @@ function sendBookingConfirmedEmail(booking) {
     'good'
   );
 }
+
+/* ============================================================
+   RESCHEDULING
+   A booking can carry a single pending `rescheduleRequest`:
+     { dateISO, time, requestedBy: 'customer' | 'admin' }
+   Whoever did NOT make the most recent proposal is the one who needs
+   to respond — admin approves/counters/declines a customer's ask;
+   the customer accepts/declines an admin counter-proposal.
+   ============================================================ */
+function submitRescheduleRequest(bookingId, dateISO, time) {
+  const bookings = getBookings();
+  const booking = bookings.find(b => b.id === bookingId);
+  if (!booking) return;
+  booking.rescheduleRequest = { dateISO, time, requestedBy: 'customer' };
+  writeStore(BOOKINGS_KEY, bookings);
+  closeBookingModal();
+  showToast(`Reschedule requested for ${prettyDate(dateISO)} · ${time} — waiting on admin.`);
+  if (typeof renderMyBookings === 'function') renderMyBookings();
+
+  sendEmail(
+    BUSINESS_CONTACT_EMAIL,
+    'Admin',
+    `Reschedule requested: ${booking.serviceName}`,
+    {
+      customer_name: customerDisplayName(booking.email),
+      service_name: booking.serviceName,
+      date: prettyDate(dateISO),
+      time: time,
+      price: booking.price,
+      message: `${customerDisplayName(booking.email)} has requested to reschedule:\n\nService: ${booking.serviceName}\nCurrent time: ${bookingWhenLabel(booking)}\nRequested new time: ${prettyDate(dateISO)} · ${time}\n\nGo to your admin dashboard's Reschedule Requests section to approve, propose a different time, or decline.`
+    },
+    'good'
+  );
+}
+
+// Admin approves the customer's exact requested time.
+function approveReschedule(bookingId) {
+  const bookings = getBookings();
+  const booking = bookings.find(b => b.id === bookingId);
+  if (!booking || !booking.rescheduleRequest) return;
+  const { dateISO, time } = booking.rescheduleRequest;
+  booking.dateISO = dateISO;
+  booking.time = time;
+  delete booking.rescheduleRequest;
+  writeStore(BOOKINGS_KEY, bookings);
+  renderAdminDashboard();
+  showToast('Reschedule approved.');
+
+  sendEmail(
+    booking.email,
+    customerDisplayName(booking.email),
+    `Your reschedule request was approved!`,
+    {
+      service_name: booking.serviceName,
+      ...bookingDateTimeParts(booking),
+      price: booking.price,
+      message: `Good news — your reschedule request was approved!\n\nService: ${booking.serviceName}\nNew time: ${bookingWhenLabel(booking)}\n\nSomebody will show up at the new time above.`
+    },
+    'good'
+  );
+}
+
+// Admin declines the reschedule entirely — booking stays at its
+// current time.
+function declineReschedule(bookingId) {
+  const bookings = getBookings();
+  const booking = bookings.find(b => b.id === bookingId);
+  if (!booking || !booking.rescheduleRequest) return;
+  delete booking.rescheduleRequest;
+  writeStore(BOOKINGS_KEY, bookings);
+  renderAdminDashboard();
+  showToast('Reschedule request declined.');
+
+  sendEmail(
+    booking.email,
+    customerDisplayName(booking.email),
+    `Update on your reschedule request`,
+    {
+      service_name: booking.serviceName,
+      ...bookingDateTimeParts(booking),
+      price: booking.price,
+      message: `Your reschedule request couldn't be accommodated, so your booking stays as originally scheduled:\n\nService: ${booking.serviceName}\n${bookingWhenLabel(booking)}\n\nIf you'd like to try a different time, just submit another reschedule request.`
+    },
+    'cancelled'
+  );
+}
+
+// Admin proposes a different time than what the customer asked for
+// (e.g. they wanted Saturday 4 PM, but only 7 PM is open) — reuses the
+// same booking modal, in reschedule mode, from the admin side.
+let adminCounterBookingId = null;
+function openAdminCounterModal(bookingId) {
+  adminCounterBookingId = bookingId;
+  openRescheduleModal(bookingId);
+  document.getElementById('modal-title').innerText = `Propose a new time`;
+  document.getElementById('modal-confirm-btn').innerText = 'Propose This Time';
+}
+function submitAdminCounter(bookingId, dateISO, time) {
+  const bookings = getBookings();
+  const booking = bookings.find(b => b.id === bookingId);
+  if (!booking) return;
+  booking.rescheduleRequest = { dateISO, time, requestedBy: 'admin' };
+  writeStore(BOOKINGS_KEY, bookings);
+  renderAdminDashboard();
+  showToast(`Proposed ${prettyDate(dateISO)} · ${time} to the customer.`);
+
+  sendEmail(
+    booking.email,
+    customerDisplayName(booking.email),
+    `A new time was proposed for your ${booking.serviceName}`,
+    {
+      service_name: booking.serviceName,
+      date: prettyDate(dateISO),
+      time: time,
+      price: booking.price,
+      message: `Your requested time wasn't available, so admin proposed a different one:\n\nService: ${booking.serviceName}\nProposed new time: ${prettyDate(dateISO)} · ${time}\n\nSign in and check your bookings to accept or decline this new time.`
+    },
+    'good'
+  );
+}
+
+// Customer responding to an admin counter-proposal.
+function acceptRescheduleCounter(bookingId) {
+  const bookings = getBookings();
+  const booking = bookings.find(b => b.id === bookingId);
+  if (!booking || !booking.rescheduleRequest) return;
+  const { dateISO, time } = booking.rescheduleRequest;
+  booking.dateISO = dateISO;
+  booking.time = time;
+  delete booking.rescheduleRequest;
+  writeStore(BOOKINGS_KEY, bookings);
+  if (typeof renderMyBookings === 'function') renderMyBookings();
+  showToast('New time accepted!');
+
+  sendEmail(
+    BUSINESS_CONTACT_EMAIL,
+    'Admin',
+    `Customer accepted the proposed time`,
+    {
+      customer_name: customerDisplayName(booking.email),
+      service_name: booking.serviceName,
+      ...bookingDateTimeParts(booking),
+      price: booking.price,
+      message: `${customerDisplayName(booking.email)} accepted the new time you proposed:\n\nService: ${booking.serviceName}\n${bookingWhenLabel(booking)}`
+    },
+    'good'
+  );
+}
+function declineRescheduleCounter(bookingId) {
+  const bookings = getBookings();
+  const booking = bookings.find(b => b.id === bookingId);
+  if (!booking || !booking.rescheduleRequest) return;
+  delete booking.rescheduleRequest;
+  writeStore(BOOKINGS_KEY, bookings);
+  if (typeof renderMyBookings === 'function') renderMyBookings();
+  showToast('Proposed time declined — your booking stays as originally scheduled.');
+
+  sendEmail(
+    BUSINESS_CONTACT_EMAIL,
+    'Admin',
+    `Customer declined the proposed time`,
+    {
+      customer_name: customerDisplayName(booking.email),
+      service_name: booking.serviceName,
+      ...bookingDateTimeParts(booking),
+      price: booking.price,
+      message: `${customerDisplayName(booking.email)} declined the new time you proposed. Their booking remains at its original time:\n\nService: ${booking.serviceName}\n${bookingWhenLabel(booking)}`
+    },
+    'cancelled'
+  );
+}
+
 function paymentInfoLabel(b) {
   if (b.customerVenmo) return ` — Venmo: ${b.customerVenmo}`;
   if (b.paymentMethod === 'cash') return ` — Payment: Cash`;
@@ -2713,6 +2904,36 @@ function openBookingModalActual(listId, idx) {
 
 function closeBookingModal() {
   document.getElementById('booking-modal').classList.remove('active');
+  // Reset back to normal booking mode and restore the button's default
+  // text, in case the modal was just used for a reschedule request.
+  rescheduleBookingId = null;
+  adminCounterBookingId = null;
+  document.getElementById('modal-confirm-btn').innerText = 'Continue to finalize order';
+}
+
+// Reuses the exact same calendar/time-slot modal as new bookings — same
+// weekend-only, 2-day-notice, and double-booking rules apply — but
+// submits a reschedule request against an EXISTING booking instead of
+// creating a new one.
+let rescheduleBookingId = null;
+function openRescheduleModal(bookingId) {
+  const booking = getBookings().find(b => b.id === bookingId);
+  if (!booking) return;
+  rescheduleBookingId = bookingId;
+  activeOffering = { name: booking.serviceName, price: booking.price };
+  document.getElementById('modal-title').innerText = `Reschedule ${booking.serviceName}`;
+  modalYear = todayReal.getFullYear();
+  modalMonth = todayReal.getMonth();
+  modalDay = null;
+  modalTime = null;
+  modalSize = null;
+  document.getElementById('modal-time-section').style.display = 'none';
+  document.getElementById('modal-size-section').style.display = 'none';
+  document.getElementById('modal-confirm-btn').disabled = true;
+  document.getElementById('modal-confirm-btn').innerText = 'Request This Time';
+  buildDowRow('modal-cal-dow');
+  renderModalCalendar();
+  document.getElementById('booking-modal').classList.add('active');
 }
 
 function buildDowRow(containerId) {
@@ -2876,6 +3097,18 @@ function confirmBooking() {
   if (!activeOffering || modalDay === null || !modalTime) return;
   if (activeOffering.sizePricing && !modalSize) return;
   const dateISO = formatDateISO(modalYear, modalMonth, modalDay);
+
+  if (rescheduleBookingId) {
+    if (adminCounterBookingId) {
+      submitAdminCounter(adminCounterBookingId, dateISO, modalTime);
+      adminCounterBookingId = null;
+      closeBookingModal();
+    } else {
+      submitRescheduleRequest(rescheduleBookingId, dateISO, modalTime);
+    }
+    return;
+  }
+
   const price = activeOffering.sizePricing ? activeOffering.sizePricing[modalSize] : activeOffering.price;
   const serviceName = activeOffering.sizePricing ? `${activeOffering.name} (${modalSize})` : activeOffering.name;
   addToCart({
@@ -3407,6 +3640,7 @@ function renderAdminDashboard() {
   }
 
   renderAdminJobRequests(bookings);
+  renderAdminRescheduleRequests(bookings);
   renderAdminCompletedLists(bookings);
 
   const customersList = document.getElementById('admin-customers-list');
@@ -3581,6 +3815,55 @@ function undoJobComplete(bookingId) {
   };
   setTimeout(jumpToRow, 50);
 }
+
+// Customer's own "My Bookings" page — upcoming bookings with reschedule
+// controls, then a short history of completed ones.
+function renderMyBookings() {
+  const email = getCurrentUser();
+  const list = document.getElementById('my-bookings-list');
+  if (!list || !email) return;
+  const mine = getBookings().filter(b => b.email === email);
+  if (mine.length === 0) {
+    list.innerHTML = '<p style="color:var(--muted-foreground);">No bookings yet — head to the home page to book a service.</p>';
+    return;
+  }
+  const upcoming = mine.filter(b => !b.completed);
+  const completed = mine.filter(b => b.completed);
+
+  function bookingRow(b) {
+    let actionHtml;
+    if (b.completed) {
+      actionHtml = `<span style="color:var(--muted-foreground);font-size:0.85rem;">Completed</span>`;
+    } else if (b.rescheduleRequest && b.rescheduleRequest.requestedBy === 'admin') {
+      const r = b.rescheduleRequest;
+      actionHtml = `
+        <div style="text-align:right;">
+          <p style="margin:0 0 6px 0;font-size:0.85rem;color:var(--primary);font-weight:500;">Admin proposed: ${prettyDate(r.dateISO)} · ${r.time}</p>
+          <button class="add-btn" onclick="acceptRescheduleCounter('${b.id}')">Accept</button>
+          <button class="remove-btn" onclick="declineRescheduleCounter('${b.id}')">Decline</button>
+        </div>`;
+    } else if (b.rescheduleRequest && b.rescheduleRequest.requestedBy === 'customer') {
+      actionHtml = `<span style="color:var(--muted-foreground);font-size:0.85rem;">Reschedule requested (${prettyDate(b.rescheduleRequest.dateISO)} · ${b.rescheduleRequest.time}) — waiting on admin</span>`;
+    } else {
+      actionHtml = `<button class="add-btn" onclick="openRescheduleModal('${b.id}')">Request Reschedule</button>`;
+    }
+    return `
+      <div class="appt-row">
+        <div>
+          <p style="margin:0;font-weight:500;">${b.serviceName}</p>
+          <p class="meta">${bookingWhenLabel(b)} — $${b.price}</p>
+        </div>
+        ${actionHtml}
+      </div>
+    `;
+  }
+
+  list.innerHTML = `
+    ${upcoming.length ? upcoming.map(bookingRow).join('') : '<p style="color:var(--muted-foreground);">No upcoming bookings.</p>'}
+    ${completed.length ? `<h2 class="font-display" style="font-size:1.4rem;margin-top:36px;">Past services</h2>` + completed.map(bookingRow).join('') : ''}
+  `;
+}
+
 function renderAdminJobRequests(bookings) {
   const list = document.getElementById('admin-job-requests-list');
   const withRequests = bookings.filter(b => !b.assignedProviderEmail && (b.jobRequests || []).length > 0);
@@ -3611,6 +3894,41 @@ function renderAdminJobRequests(bookings) {
           <p class="meta">${bookingWhenLabel(b)} — booked by ${b.email}${paymentInfoLabel(b)}</p>
         </div>
         ${requestRows}
+      </div>
+    `;
+  }).join('');
+}
+
+// Shows bookings with a pending reschedule — customer-initiated ones get
+// Approve / Propose Different Time / Decline; admin's own outgoing
+// counter-proposals just show as "waiting on customer" status.
+function renderAdminRescheduleRequests(bookings) {
+  const list = document.getElementById('admin-reschedule-requests-list');
+  const withReschedule = bookings.filter(b => b.rescheduleRequest);
+
+  if (withReschedule.length === 0) {
+    list.innerHTML = '<p style="color:var(--muted-foreground);">No pending reschedule requests.</p>';
+    return;
+  }
+
+  list.innerHTML = withReschedule.map(b => {
+    const r = b.rescheduleRequest;
+    const actionHtml = r.requestedBy === 'customer'
+      ? `
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+          <button class="add-btn" onclick="approveReschedule('${b.id}')">Approve</button>
+          <button class="add-btn" style="background:var(--secondary);color:var(--foreground);border:1px solid var(--border);" onclick="openAdminCounterModal('${b.id}')">Propose Different Time</button>
+          <button class="remove-btn" onclick="declineReschedule('${b.id}')">Decline</button>
+        </div>`
+      : `<p class="meta" style="margin-top:8px;">Waiting on customer to accept or decline.</p>`;
+    return `
+      <div class="appt-row" style="flex-direction:column;align-items:stretch;">
+        <div>
+          <p style="margin:0;font-weight:500;">${b.serviceName}</p>
+          <p class="meta">Current time: ${bookingWhenLabel(b)} — booked by ${b.email}</p>
+          <p class="meta" style="color:var(--primary);font-weight:500;">${r.requestedBy === 'customer' ? 'Customer requested' : 'You proposed'}: ${prettyDate(r.dateISO)} · ${r.time}</p>
+        </div>
+        ${actionHtml}
       </div>
     `;
   }).join('');
@@ -4348,6 +4666,7 @@ navigateTo = function(viewId) {
   if (viewId === 'confirmation-view') renderConfirmation();
   if (viewId === 'admin-view') renderAdminMap();
   if (viewId === 'completed-services-view') { ensureBookingIds(); renderAdminCompletedLists(getBookings()); }
+  if (viewId === 'my-bookings-view') { ensureBookingIds(); renderMyBookings(); }
   if (viewId === 'employee-view') {
     const email = getCurrentUser();
     const bookings = getBookings();
