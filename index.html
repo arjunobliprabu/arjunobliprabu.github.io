@@ -1735,7 +1735,7 @@
    DATA
    ============================================================ */
 const SPRING_FALL_OFFERINGS = [
-  { name: "Seasonal Lawn Care Pass", price: 400, priceLabel: "$400 / full season", description: "Skip picking dates one by one — you'll be provided with service every week, all season long.", isPass: true },
+  { name: "Seasonal Lawn Care Pass", price: 400, priceLabel: "$400 / full season", description: "Skip picking dates one by one — you'll be provided with service regularly, all season long.", isPass: true },
   { name: "Lawn mowing — back yard", sizePricing: { "Small": 30, "Medium": 40, "Large": 50, "Extra Large": 60 }, description: "Precision cut and edged borders for the back yard.", sizeGuide: [
     { size: "Small", emoji: "🌱", area: "2,000–4,000 sq ft", acres: "0.05–0.09 acres" },
     { size: "Medium", emoji: "🌿", area: "4,000–8,000 sq ft", acres: "0.09–0.18 acres" },
@@ -2556,13 +2556,13 @@ function prettyDate(iso) {
   return date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 }
 function bookingWhenLabel(b) {
-  return b.isPass ? 'Weekly — full season' : `${prettyDate(b.dateISO)} · ${b.time}`;
+  return b.isPass ? 'Regular service — full season' : `${prettyDate(b.dateISO)} · ${b.time}`;
 }
 // Separate date/time strings for email templates that have their own
 // {{date}} and {{time}} fields, rather than one combined string.
 function bookingDateTimeParts(b) {
   return b.isPass
-    ? { date: 'Weekly — full season', time: '' }
+    ? { date: 'Regular service — full season', time: '' }
     : { date: prettyDate(b.dateISO), time: b.time };
 }
 // Sends the booking-confirmed email, once we actually know how they paid.
@@ -2825,7 +2825,7 @@ function renderOfferings(listId, offerings, accentClass) {
       <div>
         <h2 class="font-display">${o.name}</h2>
         <p>${o.description}</p>
-        ${o.isPass ? '<p class="pass-weekly-note">No need to book each visit — you\'re covered every week, all season.</p>' : ''}
+        ${o.isPass ? '<p class="pass-weekly-note">No need to book each visit — you\'re covered regularly, all season.</p>' : ''}
       </div>
       <div class="price-col">
         <p>${offeringPriceLabel(o)}</p>
@@ -2865,7 +2865,7 @@ function openBookingModal(listId, idx) {
 }
 
 // The Seasonal Pass isn't tied to a specific date/time — the customer
-// gets weekly visits all season, scheduled by us — so it skips the
+// gets regular visits all season, scheduled by us — so it skips the
 // calendar entirely and goes straight into the cart.
 function addPassToCart(offering) {
   const email = getCurrentUser();
@@ -2877,13 +2877,13 @@ function addPassToCart(offering) {
   }
   addToCart({
     dateISO: formatDateISO(todayReal.getFullYear(), todayReal.getMonth(), todayReal.getDate()),
-    time: 'Weekly — full season',
+    time: 'Regular service — full season',
     serviceName: offering.name,
     price: offering.price,
     isPass: true
   });
   refreshCartBadges();
-  showToast(`Added ${offering.name} — $${offering.price} for the whole season, with service every week.`);
+  showToast(`Added ${offering.name} — $${offering.price} for the whole season, with regular service.`);
 }
 
 function openBookingModalActual(listId, idx) {
@@ -3839,7 +3839,7 @@ function renderMyBookings() {
     if (b.completed) {
       actionHtml = `<span style="color:var(--muted-foreground);font-size:0.85rem;">Completed</span>`;
     } else if (b.isPass) {
-      actionHtml = `<span style="color:var(--muted-foreground);font-size:0.85rem;">Weekly service — no single appointment to reschedule</span>`;
+      actionHtml = `<span style="color:var(--muted-foreground);font-size:0.85rem;">Regular service — no single appointment to reschedule</span>`;
     } else if (b.rescheduleRequest && b.rescheduleRequest.requestedBy === 'admin') {
       const r = b.rescheduleRequest;
       actionHtml = `
