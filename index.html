@@ -314,6 +314,80 @@
     .showcase-strip img { width: 84px; height: 84px; }
   }
 
+  /* ---------- Customer reviews ---------- */
+  .reviews-panel {
+    margin-top: 40px;
+    border-radius: 26px;
+    padding: 48px 0 12px;
+    text-align: center;
+    background: linear-gradient(135deg, var(--cool-bg) 0%, var(--warm-bg) 100%);
+    border: 1px solid var(--border);
+    box-shadow: 0 28px 60px -32px rgba(0,0,0,0.28);
+    overflow: hidden;
+  }
+  .reviews-panel-head { padding: 0 24px; }
+  .reviews-summary {
+    display: inline-flex; align-items: center; gap: 10px;
+    margin-top: 16px; padding: 8px 18px; border-radius: 999px;
+    background: var(--card); border: 1px solid var(--border);
+    font-size: 0.9rem; color: var(--foreground);
+  }
+  .reviews-summary .stars { color: #e0a526; letter-spacing: 2px; }
+  .reviews-marquee {
+    overflow: hidden; margin-top: 30px;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  }
+  .reviews-track {
+    display: flex; width: max-content; padding: 6px 0 36px;
+    animation: reviewsScroll var(--reviews-duration, 40s) linear infinite;
+  }
+  .reviews-marquee:hover .reviews-track,
+  .reviews-marquee:focus-within .reviews-track { animation-play-state: paused; }
+  .reviews-marquee.reviews-static { -webkit-mask-image: none; mask-image: none; }
+  .reviews-marquee.reviews-static .reviews-track {
+    animation: none; width: auto; flex-wrap: wrap; justify-content: center; padding: 6px 20px 20px;
+  }
+  @keyframes reviewsScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .review-card {
+    width: 300px; flex: 0 0 auto; margin-right: 16px; text-align: left; white-space: normal;
+    background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+    padding: 20px 22px; position: relative;
+    box-shadow: 0 14px 28px -18px rgba(0,0,0,0.35);
+  }
+  .reviews-marquee.reviews-static .review-card { margin: 0 8px 16px; }
+  .review-card::before {
+    content: '\201C'; position: absolute; top: 4px; right: 16px;
+    font-family: Georgia, serif; font-size: 3.6rem; line-height: 1; color: var(--border);
+  }
+  .review-stars { color: #e0a526; letter-spacing: 2px; font-size: 1.05rem; }
+  .review-text { font-size: 0.95rem; line-height: 1.55; margin: 10px 0 14px; color: var(--foreground); overflow-wrap: anywhere; }
+  .review-meta { font-size: 0.8rem; color: var(--muted-foreground); }
+  .review-meta strong { color: var(--foreground); font-weight: 600; }
+  .reviews-summary > span:last-child { white-space: nowrap; }
+  @media (max-width: 480px) {
+    .review-card { width: 260px; }
+    .reviews-summary { padding: 8px 14px; gap: 8px; font-size: 0.85rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .reviews-track { animation: none; }
+    .reviews-marquee { overflow-x: auto; -webkit-mask-image: none; mask-image: none; }
+    .review-card[aria-hidden="true"] { display: none; }
+  }
+  .star-picker { display: flex; justify-content: center; gap: 6px; margin: 14px 0 4px; }
+  .star-btn {
+    background: none; border: none; font-size: 2.3rem; line-height: 1; cursor: pointer;
+    color: #d3cbbd; padding: 2px 4px; transition: transform .12s ease, color .12s ease;
+  }
+  .star-btn:hover { transform: scale(1.15); }
+  .star-btn.on { color: #e0a526; }
+  .review-rating-label { text-align: center; font-weight: 600; min-height: 1.4em; margin: 0 0 14px 0; color: var(--foreground); }
+  .review-banner {
+    background: var(--warm-bg); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px 18px; margin-bottom: 20px; font-size: 0.92rem; line-height: 1.5;
+  }
+  .review-admin-text { font-size: 0.92rem; line-height: 1.5; margin: 6px 0 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+
   /* Gallery page intro */
   .gallery-intro { text-align: center; margin-top: 8px; }
 
@@ -667,8 +741,10 @@
   .recap-total { display: flex; justify-content: space-between; margin-top: 16px; font-size: 1.4rem; }
 
   label.form-label { display: block; font-size: 0.8rem; margin-bottom: 6px; color: var(--muted-foreground); }
-  input.form-input {
+  input.form-input, textarea.form-input {
     width: 100%;
+    box-sizing: border-box;
+    text-align: left;
     padding: 10px 12px;
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -896,6 +972,17 @@
       <p class="subtitle" style="margin-top:10px;">A few recent jobs — before we showed up, and after.</p>
       <div class="showcase-strip" id="home-showcase-strip"></div>
       <button class="pill-btn" style="margin-top:14px;" onclick="navigateTo('gallery-view')">View the Full Gallery →</button>
+    </div>
+
+    <div class="reviews-panel" id="home-reviews-panel" style="display:none;">
+      <div class="reviews-panel-head">
+        <p class="eyebrow">Happy Yards, Happy Neighbors</p>
+        <h2 class="font-display" style="font-size:2rem; margin:8px 0 0 0;">What Customers Are Saying</h2>
+        <div class="reviews-summary" id="home-reviews-summary"></div>
+      </div>
+      <div class="reviews-marquee" id="home-reviews-marquee" aria-label="Customer reviews">
+        <div class="reviews-track" id="home-reviews-track"></div>
+      </div>
     </div>
 
     <footer class="home-footer">
@@ -1226,6 +1313,16 @@
     </section>
 
     <section style="margin-top:40px;">
+      <h2 class="font-display" style="font-size:1.6rem;">Customer reviews</h2>
+      <p class="signin-note" style="margin-top:8px;">Every review waits here for your approval. Only approved 4&#9733; and 5&#9733; reviews are shown on the home page — lower ratings always stay private so you can follow up.</p>
+      <div id="admin-reviews-pending" style="margin-top:16px;"></div>
+      <h3 class="font-display" style="font-size:1.15rem;margin-top:24px;">Published on the home page</h3>
+      <div id="admin-reviews-published" style="margin-top:12px;"></div>
+      <h3 class="font-display" style="font-size:1.15rem;margin-top:24px;">Private feedback (below 4&#9733;)</h3>
+      <div id="admin-reviews-private" style="margin-top:12px;"></div>
+    </section>
+
+    <section style="margin-top:40px;">
       <h2 class="font-display" style="font-size:1.6rem;">All bookings</h2>
       <div id="admin-bookings-list" style="margin-top:16px;"></div>
     </section>
@@ -1250,7 +1347,7 @@
 
     <section style="margin-top:60px;padding-top:24px;border-top:2px solid #e8a0a0;">
       <h2 class="font-display" style="font-size:1.6rem;color:#8a2f24;">Danger Zone</h2>
-      <p class="signin-note" style="margin-top:8px;">Permanently deletes every customer account, service provider account, and booking (on this device and in the cloud, for every device). Your admin login is not affected. This cannot be undone.</p>
+      <p class="signin-note" style="margin-top:8px;">Permanently deletes every customer account, service provider account, booking, and review (on this device and in the cloud, for every device). Your admin login is not affected. This cannot be undone.</p>
       <button class="pill-btn" style="background:#b3261e;margin-top:12px;" onclick="openResetAllDataModal()">Reset All Customer &amp; Provider Data</button>
     </section>
   </div>
@@ -1552,7 +1649,7 @@
   <div class="modal-box" style="max-width:380px;text-align:center;">
     <button class="modal-close-btn" onclick="closeResetAllDataModal()" title="Close">✕</button>
     <h2 class="modal-title font-display" style="font-size:1.4rem;">Reset all customer &amp; provider data?</h2>
-    <p class="modal-sub">This permanently deletes every customer account, service provider account, and booking — on this device and every other device (customers and providers signed in elsewhere will lose their accounts too). Your admin login is not affected. This cannot be undone.</p>
+    <p class="modal-sub">This permanently deletes every customer account, service provider account, booking, and review — on this device and every other device (customers and providers signed in elsewhere will lose their accounts too). Your admin login is not affected. This cannot be undone.</p>
     <label class="form-label" for="reset-all-data-password" style="text-align:left;">Enter your admin password to confirm</label>
     <input class="form-input" id="reset-all-data-password" type="password" placeholder="Admin password">
     <p id="reset-all-data-error" style="display:none;color:#b3261e;font-size:0.8rem;margin:-8px 0 0 0;text-align:left;">Incorrect password.</p>
@@ -1664,6 +1761,29 @@
     <h2 class="modal-title font-display" style="font-size:1.4rem;margin-top:16px;">Your request has been received!</h2>
     <p class="modal-sub">Admin will review your application and approve or decline it. You'll get an email letting you know either way — no need to check back manually.</p>
     <button class="pill-btn full-btn" type="button" onclick="closeProviderSignupReceivedModal()" style="margin-top:8px;">Got it</button>
+  </div>
+</div>
+
+<!-- ================= LEAVE A REVIEW MODAL ================= -->
+<div class="modal-overlay" id="review-modal" onclick="if(event.target===this) closeReviewModal();">
+  <div class="modal-box" style="max-width:420px;text-align:center;">
+    <button class="modal-close-btn" onclick="closeReviewModal()" title="Close">&#10005;</button>
+    <h2 class="modal-title font-display" style="font-size:1.5rem;">How did we do?</h2>
+    <p class="modal-sub">Tell us about your <strong id="review-modal-service"></strong>.</p>
+    <div class="star-picker" id="review-stars" role="radiogroup" aria-label="Rating">
+      <button type="button" class="star-btn" data-value="1" role="radio" aria-checked="false" aria-label="1 star - Poor" onclick="setReviewRating(1)">&#9733;</button>
+      <button type="button" class="star-btn" data-value="2" role="radio" aria-checked="false" aria-label="2 stars - Fair" onclick="setReviewRating(2)">&#9733;</button>
+      <button type="button" class="star-btn" data-value="3" role="radio" aria-checked="false" aria-label="3 stars - Good" onclick="setReviewRating(3)">&#9733;</button>
+      <button type="button" class="star-btn" data-value="4" role="radio" aria-checked="false" aria-label="4 stars - Great" onclick="setReviewRating(4)">&#9733;</button>
+      <button type="button" class="star-btn" data-value="5" role="radio" aria-checked="false" aria-label="5 stars - Excellent" onclick="setReviewRating(5)">&#9733;</button>
+    </div>
+    <p class="review-rating-label" id="review-rating-label">Tap a star to rate</p>
+    <label class="form-label" for="review-text" style="text-align:left;">Your review</label>
+    <textarea class="form-input" id="review-text" rows="4" maxlength="300" placeholder="What stood out? How did the yard look afterwards?" style="resize:vertical;min-height:96px;font-family:inherit;margin-bottom:0;" oninput="updateReviewCharCount()"></textarea>
+    <p class="signin-note" id="review-char-count" style="text-align:right;margin:4px 0 0 0;">0 / 300</p>
+    <p id="review-error" style="display:none;color:#b3261e;font-size:0.82rem;margin:8px 0 0 0;text-align:left;"></p>
+    <p class="signin-note" style="margin-top:10px;">Reviews are checked by admin before anything is posted publicly.</p>
+    <button class="pill-btn full-btn" type="button" onclick="submitReview()" style="margin-top:8px;">Submit Review</button>
   </div>
 </div>
 
@@ -1835,6 +1955,7 @@ const CART_KEY = "lc.cart.v1";
 const ACCOUNT_KEY = "lc.currentUser.v1";
 const ACCOUNTS_KEY = "lc.accounts.v1";
 const EMPLOYEES_KEY = "lc.employees.v1";
+const REVIEWS_KEY = "lc.reviews.v1";
 
 // ============================================================
 // CLOUD SYNC (Firebase Firestore)
@@ -1929,7 +2050,8 @@ function sendEmail(toEmail, toName, subject, fields, kind) {
 const CLOUD_SYNCED_KEYS = {
   [ACCOUNTS_KEY]: 'accounts',
   [EMPLOYEES_KEY]: 'employees',
-  [BOOKINGS_KEY]: 'bookings'
+  [BOOKINGS_KEY]: 'bookings',
+  [REVIEWS_KEY]: 'reviews'
 };
 
 function cloudSyncPush(key, value) {
@@ -1992,6 +2114,8 @@ function refreshActiveView() {
   if (!active) return;
   if (active.id === 'admin-view' && typeof renderAdminDashboard === 'function') renderAdminDashboard();
   if (active.id === 'employee-view' && typeof renderEmployeeDashboard === 'function') renderEmployeeDashboard();
+  if (active.id === 'home-view' && typeof renderHomeReviews === 'function') renderHomeReviews();
+  if (active.id === 'my-bookings-view' && typeof renderMyBookings === 'function') renderMyBookings();
   if (active.id === 'cart-view' && typeof renderCart === 'function') renderCart();
   if (active.id === 'checkout-view' && typeof renderCheckout === 'function') renderCheckout();
   if (typeof refreshCartBadges === 'function') refreshCartBadges();
@@ -3645,6 +3769,7 @@ function renderAdminDashboard() {
 
   renderAdminJobRequests(bookings);
   renderAdminRescheduleRequests(bookings);
+  renderAdminReviews();
   renderAdminCompletedLists(bookings);
 
   const customersList = document.getElementById('admin-customers-list');
@@ -3726,7 +3851,7 @@ function sendJobCompletedEmails(booking) {
       service_name: booking.serviceName,
       ...bookingDateTimeParts(booking),
       price: booking.price,
-      message: `Just letting you know your service has been completed:\n\nService: ${booking.serviceName}\n${bookingWhenLabel(booking)}\n\nThanks for choosing TeenTastic Turf — we hope your yard looks great! If you have any questions or notice anything that needs attention, just reply to this email.`
+      message: `Just letting you know your service has been completed:\n\nService: ${booking.serviceName}\n${bookingWhenLabel(booking)}\n\nThanks for choosing TeenTastic Turf — we hope your yard looks great! If you have any questions or notice anything that needs attention, just reply to this email.\n\nHow did we do? We'd really appreciate a quick review \u2014 sign in at ${location.origin}${location.pathname}, open My Bookings, and tap "Leave a Review". It only takes a minute!`
     },
     'good'
   );
@@ -3820,6 +3945,245 @@ function undoJobComplete(bookingId) {
   setTimeout(jumpToRow, 50);
 }
 
+/* ============================================================
+   CUSTOMER REVIEWS
+   Flow: a booking gets completed -> the customer is prompted to review
+   it (email + My Bookings) -> the review lands as "pending" -> admin
+   approves or rejects it. Only APPROVED reviews rated 4 or 5 stars are
+   ever shown on the home page; anything lower stays private for admin.
+   Review statuses: pending | approved | rejected | reviewed (private)
+   ============================================================ */
+const REVIEW_LABELS = { 1: 'Poor', 2: 'Fair', 3: 'Good', 4: 'Great', 5: 'Excellent' };
+const REVIEW_MAX_CHARS = 300;
+const REVIEW_PUBLIC_MIN_RATING = 4;
+
+// Reviews are typed by customers and then rendered as HTML, so every bit
+// of review text goes through this first — otherwise someone could slip
+// code into a review and have it run on everyone's home page.
+function escapeHtml(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, ch => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+  ));
+}
+function getReviews() { return readStore(REVIEWS_KEY, []); }
+function saveReviews(list) { writeStore(REVIEWS_KEY, list); }
+function reviewForBooking(bookingId) { return getReviews().find(r => r.bookingId === bookingId) || null; }
+function isPublicReview(r) { return r.status === 'approved' && r.rating >= REVIEW_PUBLIC_MIN_RATING; }
+function starString(n) { return '\u2605'.repeat(n) + '\u2606'.repeat(5 - n); }
+// Public reviews show "Jamie L." — never an email address.
+function reviewerPublicName(name) {
+  const clean = String(name || '').trim();
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (parts.length === 0 || clean.includes('@')) return 'A happy customer';
+  if (parts.length === 1) return parts[0];
+  return parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.';
+}
+
+let reviewModalBookingId = null;
+let reviewModalRating = 0;
+function paintReviewStars() {
+  document.querySelectorAll('#review-stars .star-btn').forEach(btn => {
+    const v = Number(btn.dataset.value);
+    btn.classList.toggle('on', v <= reviewModalRating);
+    btn.setAttribute('aria-checked', v === reviewModalRating ? 'true' : 'false');
+  });
+  document.getElementById('review-rating-label').textContent =
+    reviewModalRating ? reviewModalRating + ' \u2014 ' + REVIEW_LABELS[reviewModalRating] : 'Tap a star to rate';
+}
+function setReviewRating(n) {
+  reviewModalRating = n;
+  paintReviewStars();
+  document.getElementById('review-error').style.display = 'none';
+}
+function updateReviewCharCount() {
+  const len = document.getElementById('review-text').value.length;
+  document.getElementById('review-char-count').textContent = len + ' / ' + REVIEW_MAX_CHARS;
+}
+function openReviewModal(bookingId) {
+  const email = getCurrentUser();
+  const booking = getBookings().find(b => b.id === bookingId);
+  if (!booking || booking.email !== email) return;
+  if (!booking.completed) { showToast('You can leave a review once this service is completed.'); return; }
+  if (reviewForBooking(bookingId)) { showToast("You've already reviewed this service \u2014 thank you!"); return; }
+  reviewModalBookingId = bookingId;
+  reviewModalRating = 0;
+  document.getElementById('review-modal-service').textContent = booking.serviceName;
+  document.getElementById('review-text').value = '';
+  updateReviewCharCount();
+  document.getElementById('review-error').style.display = 'none';
+  paintReviewStars();
+  document.getElementById('review-modal').classList.add('active');
+}
+function closeReviewModal() {
+  document.getElementById('review-modal').classList.remove('active');
+  reviewModalBookingId = null;
+  reviewModalRating = 0;
+}
+function submitReview() {
+  const errEl = document.getElementById('review-error');
+  const showErr = msg => { errEl.textContent = msg; errEl.style.display = 'block'; };
+  const text = document.getElementById('review-text').value.trim();
+  if (!reviewModalRating) { showErr('Please tap a star to choose a rating.'); return; }
+  if (!text) { showErr('Please write a short note about your experience.'); return; }
+
+  const email = getCurrentUser();
+  const booking = getBookings().find(b => b.id === reviewModalBookingId);
+  if (!booking || booking.email !== email || !booking.completed) {
+    closeReviewModal();
+    showToast("This service isn't available to review right now.");
+    return;
+  }
+  if (reviewForBooking(booking.id)) {
+    closeReviewModal();
+    showToast("You've already reviewed this service \u2014 thank you!");
+    return;
+  }
+
+  const acct = findAccount(email);
+  const review = {
+    id: 'review-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+    bookingId: booking.id,
+    email,
+    customerName: (acct && acct.name) ? acct.name : '',
+    serviceName: booking.serviceName,
+    rating: reviewModalRating,
+    text: text.slice(0, REVIEW_MAX_CHARS),
+    status: 'pending',
+    createdAt: Date.now()
+  };
+  saveReviews([...getReviews(), review]);
+  closeReviewModal();
+  showToast('Thank you! Your review was sent to admin for approval.');
+  renderMyBookings();
+
+  sendEmail(
+    BUSINESS_CONTACT_EMAIL,
+    'Admin',
+    'New review to approve: ' + review.rating + '\u2605 for ' + review.serviceName,
+    {
+      customer_name: customerDisplayName(email),
+      service_name: review.serviceName,
+      message: customerDisplayName(email) + ' left a ' + review.rating + '-star review (' + REVIEW_LABELS[review.rating] + ') for ' + review.serviceName + ':\n\n"' + review.text + '"\n\n' +
+        (review.rating >= REVIEW_PUBLIC_MIN_RATING
+          ? "Approve it in your admin dashboard's Customer reviews section to publish it on the home page."
+          : "Ratings below 4 stars stay private \u2014 check your admin dashboard's Customer reviews section if you'd like to follow up with the customer.")
+    },
+    'good'
+  );
+}
+
+// ----- admin moderation -----
+function setReviewStatus(id, status) {
+  const list = getReviews();
+  const r = list.find(x => x.id === id);
+  if (!r) return null;
+  r.status = status;
+  r.reviewedAt = Date.now();
+  saveReviews(list);
+  return r;
+}
+function approveReview(id) {
+  const existing = getReviews().find(x => x.id === id);
+  if (!existing) return;
+  if (existing.rating < REVIEW_PUBLIC_MIN_RATING) { markReviewReviewed(id); return; }
+  const r = setReviewStatus(id, 'approved');
+  renderAdminDashboard();
+  showToast('Review approved \u2014 it now shows on the home page.');
+  const acct = findAccount(r.email);
+  sendEmail(
+    r.email,
+    (acct && acct.name) ? acct.name : r.email,
+    'Your review is now live on TeenTastic Turf!',
+    {
+      service_name: r.serviceName,
+      message: 'Thank you so much for your ' + r.rating + '-star review of your ' + r.serviceName + ' \u2014 it has been approved and is now featured on our home page. Reviews like yours mean the world to a small business!'
+    },
+    'good'
+  );
+}
+function rejectReview(id) {
+  if (!setReviewStatus(id, 'rejected')) return;
+  renderAdminDashboard();
+  showToast('Review rejected \u2014 it will not be shown publicly.');
+}
+function markReviewReviewed(id) {
+  if (!setReviewStatus(id, 'reviewed')) return;
+  renderAdminDashboard();
+  showToast('Marked as reviewed \u2014 it stays private.');
+}
+function unpublishReview(id) {
+  if (!setReviewStatus(id, 'rejected')) return;
+  renderAdminDashboard();
+  showToast('Review removed from the home page.');
+}
+function renderAdminReviews() {
+  const pendingEl = document.getElementById('admin-reviews-pending');
+  const pubEl = document.getElementById('admin-reviews-published');
+  const privEl = document.getElementById('admin-reviews-private');
+  if (!pendingEl || !pubEl || !privEl) return;
+  const all = getReviews().slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const empty = msg => '<p style="color:var(--muted-foreground);">' + msg + '</p>';
+  const head = r =>
+    '<p style="margin:0;font-weight:500;"><span class="review-stars">' + starString(r.rating) + '</span> &nbsp;' + escapeHtml(REVIEW_LABELS[r.rating]) + '</p>' +
+    '<p class="meta">' + escapeHtml(r.customerName || r.email) + ' \u00b7 ' + escapeHtml(r.serviceName) + ' \u00b7 ' + new Date(r.createdAt).toLocaleDateString() + '</p>' +
+    '<p class="review-admin-text">' + escapeHtml(r.text) + '</p>';
+
+  const pending = all.filter(r => r.status === 'pending');
+  pendingEl.innerHTML = pending.length ? pending.map(r => `
+    <div class="appt-row" style="flex-direction:column;align-items:stretch;">
+      <div>${head(r)}</div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+        ${r.rating >= REVIEW_PUBLIC_MIN_RATING
+          ? `<button class="add-btn" onclick="approveReview('${r.id}')">Approve &amp; Publish</button>`
+          : `<button class="add-btn" onclick="markReviewReviewed('${r.id}')">Mark Reviewed (stays private)</button>`}
+        <button class="remove-btn" onclick="rejectReview('${r.id}')">Reject</button>
+      </div>
+      ${r.rating < REVIEW_PUBLIC_MIN_RATING ? '<p class="meta" style="margin-top:6px;">Below 4 stars, so this is never shown publicly. You may want to reach out to ' + escapeHtml(r.email) + '.</p>' : ''}
+    </div>`).join('') : empty('No reviews waiting for approval.');
+
+  const published = all.filter(isPublicReview);
+  pubEl.innerHTML = published.length ? published.map(r => `
+    <div class="appt-row" style="flex-direction:column;align-items:stretch;">
+      <div>${head(r)}</div>
+      <div style="margin-top:10px;"><button class="remove-btn" onclick="unpublishReview('${r.id}')">Unpublish</button></div>
+    </div>`).join('') : empty('Nothing published yet.');
+
+  const priv = all.filter(r => r.status === 'reviewed');
+  privEl.innerHTML = priv.length ? priv.map(r => `
+    <div class="appt-row" style="flex-direction:column;align-items:stretch;"><div>${head(r)}</div></div>`).join('') : empty('No private feedback.');
+}
+
+// ----- home page "What Customers Are Saying" strip -----
+function renderHomeReviews() {
+  const panel = document.getElementById('home-reviews-panel');
+  if (!panel) return;
+  const shown = getReviews().filter(isPublicReview).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  if (shown.length === 0) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+
+  const avg = shown.reduce((sum, r) => sum + r.rating, 0) / shown.length;
+  document.getElementById('home-reviews-summary').innerHTML =
+    '<span class="stars">' + starString(Math.round(avg)) + '</span><span><strong>' + avg.toFixed(1) + '</strong> average \u00b7 ' +
+    shown.length + (shown.length === 1 ? ' review' : ' reviews') + '</span>';
+
+  const cards = hidden => shown.map(r => `
+    <article class="review-card"${hidden ? ' aria-hidden="true"' : ''}>
+      <div class="review-stars" aria-label="${r.rating} out of 5 stars">${starString(r.rating)}</div>
+      <p class="review-text">${escapeHtml(r.text)}</p>
+      <p class="review-meta"><strong>${escapeHtml(reviewerPublicName(r.customerName))}</strong> \u00b7 ${escapeHtml(r.serviceName)}</p>
+    </article>`).join('');
+
+  // 4+ reviews scroll endlessly (the set is doubled so the loop is
+  // seamless); fewer than that sit still, centered, rather than leaving
+  // gaps in a half-empty scrolling strip.
+  const scrolling = shown.length >= 4;
+  const marquee = document.getElementById('home-reviews-marquee');
+  const track = document.getElementById('home-reviews-track');
+  marquee.classList.toggle('reviews-static', !scrolling);
+  track.innerHTML = scrolling ? cards(false) + cards(true) : cards(false);
+  track.style.setProperty('--reviews-duration', Math.max(28, shown.length * 8) + 's');
+}
+
 // Customer's own "My Bookings" page — upcoming bookings with reschedule
 // controls, then a short history of completed ones.
 function renderMyBookings() {
@@ -3837,7 +4201,7 @@ function renderMyBookings() {
   function bookingRow(b) {
     let actionHtml;
     if (b.completed) {
-      actionHtml = `<span style="color:var(--muted-foreground);font-size:0.85rem;">Completed</span>`;
+      actionHtml = completedActionHtml(b);
     } else if (b.isPass) {
       actionHtml = `<span style="color:var(--muted-foreground);font-size:0.85rem;">Regular service — no single appointment to reschedule</span>`;
     } else if (b.rescheduleRequest && b.rescheduleRequest.requestedBy === 'admin') {
@@ -3857,7 +4221,7 @@ function renderMyBookings() {
           <p style="margin:4px 0 0 0;font-size:0.75rem;color:var(--muted-foreground);">Too close to your appointment — reschedules need at least 24 hours' notice.</p>
         </div>`;
     } else {
-      actionHtml = `<button class="add-btn" onclick="openRescheduleModal('${b.id}')">Request Reschedule</button>`;
+      actionHtml = `<div style="text-align:right;"><button class="add-btn" style="margin-top:0;" onclick="openRescheduleModal('${b.id}')">Request Reschedule</button></div>`;
     }
     return `
       <div class="appt-row">
@@ -3870,7 +4234,23 @@ function renderMyBookings() {
     `;
   }
 
+  function completedActionHtml(b) {
+    const r = reviewForBooking(b.id);
+    if (!r) {
+      return `<div style="text-align:right;"><span style="color:var(--muted-foreground);font-size:0.85rem;">Completed</span><br><button class="add-btn" style="margin-top:6px;" onclick="openReviewModal('${b.id}')">&#9733; Leave a Review</button></div>`;
+    }
+    let status = 'Thanks for your feedback!';
+    if (r.status === 'pending') status = 'Review submitted \u2014 awaiting approval';
+    else if (isPublicReview(r)) status = 'Your review is live \u2014 thank you!';
+    return `<div style="text-align:right;"><span class="review-stars">${starString(r.rating)}</span><p style="margin:2px 0 0 0;font-size:0.8rem;color:var(--muted-foreground);">${status}</p></div>`;
+  }
+  const needReview = completed.filter(b => !reviewForBooking(b.id)).length;
+  const reviewBanner = needReview
+    ? `<div class="review-banner">&#11088; <strong>How did we do?</strong> You have ${needReview} completed ${needReview === 1 ? 'service' : 'services'} waiting for your feedback &mdash; tap <em>Leave a Review</em> below. It only takes a minute and helps a lot!</div>`
+    : '';
+
   list.innerHTML = `
+    ${reviewBanner}
     ${upcoming.length ? upcoming.map(bookingRow).join('') : '<p style="color:var(--muted-foreground);">No upcoming bookings.</p>'}
     ${completed.length ? `<h2 class="font-display" style="font-size:1.4rem;margin-top:36px;">Past services</h2>` + completed.map(bookingRow).join('') : ''}
   `;
@@ -4589,6 +4969,7 @@ function confirmResetAllData() {
   writeStore(ACCOUNTS_KEY, []);
   writeStore(EMPLOYEES_KEY, []);
   writeStore(BOOKINGS_KEY, []);
+  writeStore(REVIEWS_KEY, []);
   writeStore(CART_KEY, []);
   closeResetAllDataModal();
   renderAdminDashboard();
@@ -4667,6 +5048,7 @@ checkForStripeReturn();
 renderOfferings('springfall-offerings', SPRING_FALL_OFFERINGS, 'warm');
 renderOfferings('winter-offerings', WINTER_OFFERINGS, 'cool');
 renderHomeShowcase();
+renderHomeReviews();
 refreshCartBadges();
 initCloudSync();
 
@@ -4679,6 +5061,7 @@ navigateTo = function(viewId) {
   if (viewId === 'admin-view') renderAdminMap();
   if (viewId === 'completed-services-view') { ensureBookingIds(); renderAdminCompletedLists(getBookings()); }
   if (viewId === 'my-bookings-view') { ensureBookingIds(); renderMyBookings(); }
+  if (viewId === 'home-view') renderHomeReviews();
   if (viewId === 'employee-view') {
     const email = getCurrentUser();
     const bookings = getBookings();
