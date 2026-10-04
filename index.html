@@ -489,6 +489,13 @@
     padding: 5px 14px;
     border-radius: 999px;
   }
+  /* "Coming soon" offerings: visible and tempting, but greyed out and not bookable */
+  .offering.coming-soon { filter: grayscale(1); opacity: 0.62; box-shadow: none; }
+  .offering.coming-soon .coming-soon-pill {
+    display: inline-block; margin-top: 4px; padding: 7px 16px; border-radius: 999px;
+    background: var(--foreground); color: #fff; font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap;
+  }
   .pass-weekly-note { font-size: 0.8rem; color: var(--muted-foreground); margin-top: 6px; font-style: normal; }
   .offering.pass-offering .add-btn { background: var(--foreground); }
   .next-available-hint {
@@ -1855,7 +1862,7 @@
    DATA
    ============================================================ */
 const SPRING_FALL_OFFERINGS = [
-  { name: "Seasonal Lawn Care Pass", price: 400, priceLabel: "$400 / full season", description: "Skip picking dates one by one — you'll be provided with service regularly, all season long.", isPass: true },
+  { name: "Seasonal Lawn Care Pass", price: 400, priceLabel: "$400 / full season", description: "Skip picking dates one by one — you'll be provided with service regularly, all season long.", isPass: true, comingSoon: true },
   { name: "Lawn mowing — back yard", sizePricing: { "Small": 30, "Medium": 40, "Large": 50, "Extra Large": 60 }, description: "Precision cut and edged borders for the back yard.", sizeGuide: [
     { size: "Small", emoji: "🌱", area: "2,000–4,000 sq ft", acres: "0.05–0.09 acres" },
     { size: "Medium", emoji: "🌿", area: "4,000–8,000 sq ft", acres: "0.09–0.18 acres" },
@@ -1868,8 +1875,8 @@ const SPRING_FALL_OFFERINGS = [
     { size: "Large", emoji: "🌳", area: "4,500–7,500 sq ft", acres: "0.10–0.17 acres" },
     { size: "Extra Large", emoji: "🏡", area: "7,500–12,000+ sq ft", acres: "0.17–0.28+ acres" }
   ] },
-  { name: "Leaf blowing", sizePricing: { "Small": 20, "Medium": 25, "Large": 30, "Extra Large": 35 }, description: "Full yard clearing, beds and walkways included." },
-  { name: "Weed whacking", sizePricing: { "Small": 30, "Medium": 40, "Large": 50, "Extra Large": 60 }, description: "Trim along fences, beds and hardscape edges." },
+  { name: "Leaf blowing", sizePricing: { "Small": 40, "Medium": 45, "Large": 50, "Extra Large": 55 }, description: "Full yard clearing, beds and walkways included." },
+  { name: "Weed whacking", sizePricing: { "Small": 50, "Medium": 60, "Large": 70, "Extra Large": 80 }, description: "Trim along fences, beds and hardscape edges." },
   { name: "Plant watering", price: 25, priceLabel: "$25 / visit", description: "Scheduled deep watering for beds and containers." },
   { name: "Seasonal cleanup", price: 200, priceLabel: "Starting from $200", description: "Full property reset at the start or end of the season." },
 ];
@@ -1878,7 +1885,7 @@ const WINTER_OFFERINGS = [
   { name: "Snow plowing", price: 75, priceLabel: "$75 / visit", description: "Driveway and parking pad cleared after each snowfall." },
   { name: "Shoveling snow", price: 50, priceLabel: "$50 / visit", description: "Walkways, steps and entryways shoveled clean." },
   { name: "Car cleaning (snow)", price: 20, priceLabel: "$20 / car", description: "Brush off, windows cleared, wipers freed." },
-  { name: "Seasonal snow plan", price: 200, priceLabel: "Starting from $200", description: "Covers snow plowing for your driveway and walkways only, all winter long." },
+  { name: "Seasonal snow plan", price: 200, priceLabel: "Starting from $200", description: "Covers snow plowing for your driveway and walkways only, all winter long.", comingSoon: true },
 ];
 
 // Before/after photo gallery — real job photos. Each yard section has
@@ -2943,7 +2950,8 @@ function renderOfferings(listId, offerings, accentClass) {
   ul.innerHTML = '';
   offerings.forEach((o, idx) => {
     const li = document.createElement('li');
-    li.className = `offering ${accentClass}${o.isPass ? ' pass-offering' : ''}`;
+    li.className = `offering ${accentClass}${o.isPass ? ' pass-offering' : ''}${o.comingSoon ? ' coming-soon' : ''}`;
+    if (o.comingSoon) li.setAttribute('aria-disabled', 'true');
     li.innerHTML = `
       ${o.isPass ? '<span class="pass-badge">Best value</span>' : ''}
       <div>
@@ -2952,8 +2960,10 @@ function renderOfferings(listId, offerings, accentClass) {
         ${o.isPass ? '<p class="pass-weekly-note">No need to book each visit — you\'re covered regularly, all season.</p>' : ''}
       </div>
       <div class="price-col">
-        <p>${offeringPriceLabel(o)}</p>
-        <button class="add-btn" onclick="openBookingModal('${listId}', ${idx})">${o.isPass ? 'Get the pass' : 'Add'}</button>
+        ${o.comingSoon
+          ? '<span class="coming-soon-pill">Coming soon</span>'
+          : `<p>${offeringPriceLabel(o)}</p>
+        <button class="add-btn" onclick="openBookingModal('${listId}', ${idx})">${o.isPass ? 'Get the pass' : 'Add'}</button>`}
       </div>
     `;
     ul.appendChild(li);
@@ -2973,6 +2983,10 @@ function offeringFromSource(listId, idx) {
 
 function openBookingModal(listId, idx) {
   const offering = offeringFromSource(listId, idx);
+  if (offering.comingSoon) {
+    showToast(`${offering.name} is coming soon — stay tuned!`);
+    return;
+  }
   if (offering.isPass) {
     if (!getCurrentUser()) {
       openSignInModal(() => addPassToCart(offering), 'customer');
@@ -2992,6 +3006,7 @@ function openBookingModal(listId, idx) {
 // gets regular visits all season, scheduled by us — so it skips the
 // calendar entirely and goes straight into the cart.
 function addPassToCart(offering) {
+  if (offering.comingSoon) return;
   const email = getCurrentUser();
   const alreadyHavePass = getCart().some(c => c.email === email && c.isPass) ||
     getBookings().some(b => b.email === email && b.isPass);
