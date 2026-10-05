@@ -1774,6 +1774,30 @@
   </div>
 </div>
 
+<!-- ================= EDIT FINAL PRICE MODAL (admin) ================= -->
+<div class="modal-overlay" id="edit-price-modal" onclick="if(event.target===this) closeEditPriceModal();">
+  <div class="modal-box" style="max-width:440px;text-align:left;">
+    <button class="modal-close-btn" onclick="closeEditPriceModal()" title="Close">&#10005;</button>
+    <h2 class="modal-title font-display" style="font-size:1.4rem;">Update final price</h2>
+    <p class="modal-sub" id="edit-price-summary" style="margin-bottom:6px;"></p>
+    <p id="edit-price-current" style="margin:0 0 14px 0;font-size:0.9rem;"></p>
+    <label class="form-label" for="edit-price-input">Final price ($)</label>
+    <input class="form-input" id="edit-price-input" type="number" min="1" max="10000" step="1" inputmode="numeric" placeholder="110" oninput="updateEditPricePreview()" onkeydown="if(event.key==='Enter') saveEditedPrice()">
+    <label class="form-label" for="edit-price-note">Reason (optional)</label>
+    <input class="form-input" id="edit-price-note" type="text" maxlength="200" placeholder="e.g. Extra hedge trimming and edging">
+    <div class="review-banner" id="edit-price-preview" style="margin:4px 0 12px 0;"></div>
+    <label style="display:flex;align-items:flex-start;gap:10px;font-size:0.85rem;margin:0 0 6px 0;cursor:pointer;">
+      <input type="checkbox" id="edit-price-notify" checked style="width:16px;height:16px;flex-shrink:0;margin-top:2px;">
+      <span>Email the customer (and the assigned provider) about this change</span>
+    </label>
+    <p id="edit-price-error" style="display:none;color:#b3261e;font-size:0.82rem;margin:6px 0 0 0;"></p>
+    <div style="display:flex;gap:12px;margin-top:16px;">
+      <button class="pill-btn full-btn" type="button" style="background:var(--secondary);color:var(--foreground);" onclick="closeEditPriceModal()">Cancel</button>
+      <button class="pill-btn full-btn" type="button" onclick="saveEditedPrice()">Save Price</button>
+    </div>
+  </div>
+</div>
+
 <!-- ================= LEAVE A REVIEW MODAL ================= -->
 <div class="modal-overlay" id="review-modal" onclick="if(event.target===this) closeReviewModal();">
   <div class="modal-box" style="max-width:420px;text-align:center;">
@@ -3786,9 +3810,11 @@ function renderAdminDashboard() {
           <p class="meta">${bookingWhenLabel(b)} — booked by ${b.email}${paymentInfoLabel(b)}${statusNote}</p>
         </div>
         <div style="text-align:right;">
-          <p style="font-weight:500;margin:0 0 6px 0;">${priceLabel}</p>
+          <p style="font-weight:500;margin:0 0 ${priceWasRevised(b) ? '2px' : '6px'} 0;">${priceLabel}</p>
+          ${priceWasRevised(b) ? `<p class="meta" style="margin:0 0 6px 0;">Price updated &mdash; was $${originalPriceOf(b)}${lastPriceNote(b) ? ' &middot; ' + escapeHtml(lastPriceNote(b)) : ''}</p>` : ''}
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
             <button class="add-btn" onclick="event.stopPropagation(); adminMarkJobComplete('${b.id}')">Mark Completed</button>
+            <button class="add-btn" style="margin-top:0;background:var(--secondary);color:var(--foreground);border:1px solid var(--border);" onclick="event.stopPropagation(); openEditPriceModal('${b.id}')">Edit Price</button>
             <button class="remove-btn" style="margin-top:0;" onclick="event.stopPropagation(); openCancelBookingModal('${b.id}')">Cancel</button>
           </div>
         </div>
@@ -3836,6 +3862,143 @@ function renderAdminDashboard() {
 // Splits completed jobs into two lists — ones the admin marked complete
 // directly, and ones a service provider marked complete themselves —
 // each with an Undo button in case a job was completed by mistake.
+/* ============================================================
+   FINAL PRICE REVISION (admin)
+   The listed price is only the starting point — if extra work is done
+   on site, the admin sets the real price. Because revenue, the 80/20
+   provider payout, provider earnings and every email all read
+   booking.price, updating that one number carries the change through.
+   Each change is logged in booking.priceChanges so the original price
+   and the reason are never lost.
+   ============================================================ */
+const MAX_FINAL_PRICE = 10000;
+let editPriceBookingId = null;
+
+function priceChangeHistory(b) { return Array.isArray(b.priceChanges) ? b.priceChanges : []; }
+function originalPriceOf(b) { const h = priceChangeHistory(b); return h.length ? h[0].from : b.price; }
+function priceWasRevised(b) { return priceChangeHistory(b).length > 0 && originalPriceOf(b) !== b.price; }
+function lastPriceNote(b) { const h = priceChangeHistory(b); return h.length ? (h[h.length - 1].note || '') : ''; }
+
+function openEditPriceModal(bookingId) {
+  if (!isAdminEmail(getCurrentUser())) return;
+  const b = getBookings().find(x => x.id === bookingId);
+  if (!b) return;
+  editPriceBookingId = bookingId;
+  document.getElementById('edit-price-summary').textContent = b.serviceName + ' \u00b7 ' + bookingWhenLabel(b) + ' \u00b7 ' + b.email;
+  document.getElementById('edit-price-current').innerHTML =
+    'Current price: <strong>$' + b.price + '</strong>' + (priceWasRevised(b) ? ' <span style="color:var(--muted-foreground);">(originally $' + originalPriceOf(b) + ')</span>' : '') +
+    (b.completed ? '<br><span style="color:var(--muted-foreground);">This job is already completed \u2014 the provider will be emailed their updated payout.</span>' : '');
+  document.getElementById('edit-price-input').value = b.price;
+  document.getElementById('edit-price-note').value = '';
+  document.getElementById('edit-price-notify').checked = true;
+  document.getElementById('edit-price-error').style.display = 'none';
+  updateEditPricePreview();
+  document.getElementById('edit-price-modal').classList.add('active');
+  const input = document.getElementById('edit-price-input');
+  input.focus(); input.select();
+}
+function closeEditPriceModal() {
+  document.getElementById('edit-price-modal').classList.remove('active');
+  editPriceBookingId = null;
+}
+function parseEditedPrice() {
+  const raw = document.getElementById('edit-price-input').value.trim();
+  if (raw === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+// Live "what will this mean" summary while the admin types.
+function updateEditPricePreview() {
+  const el = document.getElementById('edit-price-preview');
+  const b = getBookings().find(x => x.id === editPriceBookingId);
+  const n = parseEditedPrice();
+  if (!b || n === null || n <= 0 || !Number.isInteger(n)) {
+    el.innerHTML = 'Enter the final whole-dollar amount the customer is actually paying.';
+    return;
+  }
+  const diff = n - b.price;
+  const { providerCut, adminCut } = splitJobPrice(n);
+  const diffLine = diff === 0 ? 'No change from the current price.'
+    : diff > 0 ? '<strong style="color:var(--primary);">+$' + diff + '</strong> more than the current price.'
+    : '<strong>\u2212$' + (-diff) + '</strong> less than the current price.';
+  const splitLine = b.assignedProviderEmail
+    ? 'Provider payout (80%): <strong>$' + providerCut.toFixed(2) + '</strong> \u00b7 You keep (20%): <strong>$' + adminCut.toFixed(2) + '</strong>'
+    : 'No provider assigned yet. Done in-house you keep the full $' + n + '; if a provider takes it they earn $' + providerCut.toFixed(2) + ' (80%) and you keep $' + adminCut.toFixed(2) + ' (20%).';
+  el.innerHTML = diffLine + '<br>' + splitLine;
+}
+function saveEditedPrice() {
+  if (!isAdminEmail(getCurrentUser())) return;
+  const errEl = document.getElementById('edit-price-error');
+  const showErr = msg => { errEl.textContent = msg; errEl.style.display = 'block'; };
+  const bookings = getBookings();
+  const b = bookings.find(x => x.id === editPriceBookingId);
+  if (!b) { closeEditPriceModal(); return; }
+  const n = parseEditedPrice();
+  if (n === null || n <= 0) { showErr('Please enter the final price as a positive number.'); return; }
+  if (!Number.isInteger(n)) { showErr('Please use a whole-dollar amount (for example 110).'); return; }
+  if (n > MAX_FINAL_PRICE) { showErr('That looks too high \u2014 please double-check the amount.'); return; }
+  if (n === b.price) { showErr('That is already the current price.'); return; }
+
+  const from = b.price;
+  const note = document.getElementById('edit-price-note').value.trim().slice(0, 200);
+  const notify = document.getElementById('edit-price-notify').checked;
+  b.priceChanges = [...priceChangeHistory(b), { from, to: n, note, at: Date.now() }];
+  b.price = n;
+  writeStore(BOOKINGS_KEY, bookings);
+  closeEditPriceModal();
+  renderAdminDashboard();
+  showToast('Final price updated: $' + from + ' \u2192 $' + n + '.');
+  if (notify) sendPriceUpdateEmails(b, from, n, note);
+}
+function sendPriceUpdateEmails(b, from, to, note) {
+  const diff = to - from;
+  const diffText = (diff > 0 ? '+$' : '\u2212$') + Math.abs(diff);
+  const reason = note ? '\n\nReason: ' + note : '';
+  sendEmail(
+    b.email,
+    customerDisplayName(b.email),
+    'Your final price was updated: ' + b.serviceName,
+    {
+      service_name: b.serviceName,
+      ...bookingDateTimeParts(b),
+      price: to,
+      message: 'The final price for your ' + b.serviceName + ' (' + bookingWhenLabel(b) + ') has been updated.\n\nOriginal price: $' + from + '\nNew final price: $' + to + ' (' + diffText + ')' + reason + '\n\nIf you have any questions about this change, just reply to this email.'
+    },
+    'good'
+  );
+  if (b.assignedProviderEmail) {
+    const provider = findEmployee(b.assignedProviderEmail);
+    const oldPay = splitJobPrice(from).providerCut.toFixed(2);
+    const newPay = splitJobPrice(to).providerCut.toFixed(2);
+    sendEmail(
+      b.assignedProviderEmail,
+      provider ? provider.firstName : b.assignedProviderEmail,
+      'Job price updated: ' + b.serviceName,
+      {
+        customer_name: customerDisplayName(b.email),
+        service_name: b.serviceName,
+        ...bookingDateTimeParts(b),
+        price: to,
+        payout_amount: newPay,
+        message: 'The price for a job you are assigned to was updated:\n\nCustomer: ' + customerDisplayName(b.email) + '\nService: ' + b.serviceName + '\n' + bookingWhenLabel(b) + '\nJob price: $' + from + ' \u2192 $' + to + '\nYour payout: $' + oldPay + ' \u2192 $' + newPay + reason +
+          (b.completed ? '\n\nThis job was already marked completed, so the payout above replaces the amount in your earlier email.' : '')
+      },
+      'good'
+    );
+  }
+}
+// Right-hand side of a completed-job row: final price (with the original
+// if it changed) plus Edit Price / Undo.
+function completedRowRight(b) {
+  const was = priceWasRevised(b) ? ' <span style="font-weight:400;color:var(--muted-foreground);font-size:0.75rem;">(was $' + originalPriceOf(b) + ')</span>' : '';
+  return '<div style="text-align:right;">' +
+    '<p style="font-weight:500;margin:0 0 6px 0;">$' + b.price + was + '</p>' +
+    '<div style="display:flex;gap:12px;align-items:center;justify-content:flex-end;">' +
+    '<button class="remove-btn" style="margin-top:0;" onclick="openEditPriceModal(\'' + b.id + '\')">Edit Price</button>' +
+    '<button class="remove-btn" style="margin-top:0;" onclick="undoJobComplete(\'' + b.id + '\')">Undo</button>' +
+    '</div></div>';
+}
+
 function renderAdminCompletedLists(bookings) {
   const completed = bookings.filter(b => b.completed);
   // Bookings completed before this admin/provider split existed won't
@@ -3853,7 +4016,7 @@ function renderAdminCompletedLists(bookings) {
           <p style="margin:0;font-weight:500;">${b.serviceName}</p>
           <p class="meta">${bookingWhenLabel(b)} — booked by ${b.email}${paymentInfoLabel(b)}</p>
         </div>
-        <button class="remove-btn" onclick="undoJobComplete('${b.id}')">Undo</button>
+        ${completedRowRight(b)}
       </div>
     `).join('');
 
@@ -3866,7 +4029,7 @@ function renderAdminCompletedLists(bookings) {
           <p style="margin:0;font-weight:500;">${b.serviceName}</p>
           <p class="meta">${bookingWhenLabel(b)} — booked by ${b.email}${paymentInfoLabel(b)} — completed by ${b.completedBy}</p>
         </div>
-        <button class="remove-btn" onclick="undoJobComplete('${b.id}')">Undo</button>
+        ${completedRowRight(b)}
       </div>
     `).join('');
 }
@@ -4259,7 +4422,7 @@ function renderMyBookings() {
       <div class="appt-row">
         <div>
           <p style="margin:0;font-weight:500;">${b.serviceName}</p>
-          <p class="meta">${bookingWhenLabel(b)} — $${b.price}</p>
+          <p class="meta">${bookingWhenLabel(b)} — $${b.price}${priceWasRevised(b) ? ` (updated from $${originalPriceOf(b)}${lastPriceNote(b) ? ` &middot; ${escapeHtml(lastPriceNote(b))}` : ''})` : ''}</p>
         </div>
         ${actionHtml}
       </div>
