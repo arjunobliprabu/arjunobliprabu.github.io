@@ -2571,6 +2571,10 @@ function submitProviderSignUp() {
 }
 
 function finishSignIn(email) {
+  // Always use the email exactly as it was saved at sign-up, so a phone that
+  // auto-capitalizes ("Cust@..." vs "cust@...") can't hide someone's bookings.
+  const saved = findAccount(email) || findEmployee(email);
+  if (saved && saved.email) email = saved.email;
   const rememberBox = document.getElementById('remember-me-checkbox');
   setCurrentUser(email, rememberBox ? rememberBox.checked : true);
   document.getElementById('signin-modal').classList.remove('active');
@@ -2649,8 +2653,14 @@ function getCart() { return readStore(CART_KEY, []); }
 // two lawn mowings) can't be booked twice in one date+time slot, since
 // that's one worker doing one job. Different services (lawn mowing +
 // weed whacking) CAN share the same date+time slot.
+// Bookings for sized services are stored as e.g. "Lawn mowing — back yard (Small)",
+// but the calendar checks the plain service name — so compare with the size removed.
+function baseServiceName(name) {
+  return String(name || '').replace(/\s*\((Small|Medium|Large|Extra Large)\)\s*$/i, '');
+}
 function isSlotBookedForService(dateISO, time, serviceName) {
-  return getBookings().some(b => b.dateISO === dateISO && b.time === time && b.serviceName === serviceName);
+  const base = baseServiceName(serviceName);
+  return getBookings().some(b => b.dateISO === dateISO && b.time === time && baseServiceName(b.serviceName) === base);
 }
 // Looks ahead up to 30 days for the next date+time where this service
 // is open, so a customer whose preferred slot is taken gets a concrete
